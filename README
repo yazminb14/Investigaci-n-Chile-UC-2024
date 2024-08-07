@@ -1,1 +1,9 @@
 En este repositorio se encuentran los códigos utilizados para la comunicación CAN del Digital Twin a implementar
+
+IMPORTANTE: Cada vez que se enciendan los equipos se debe levantar la red en la cmd con los comandos:
+
+sudo ip link set can0 up type can bitrate 500000
+sudo ifconfig can0 up
+
+%y con este comando se puede visualizar si la red esta up o no
+ip -details -statistics link show can0
