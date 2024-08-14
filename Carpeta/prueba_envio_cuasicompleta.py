@@ -7,15 +7,21 @@ def send_float64_over_can(bus, message_id, value):
     # Convierte el valor float a 64-bit (double precision) en formato bytes
     packed_value = struct.pack('>d', value)  # '>d' para big-endian double
     
-    # Crea el mensaje CAN
+    # Crea el mensaje CAN con un identificador extendido (29 bits)
     message = can.Message(
         arbitration_id=message_id,
         data=packed_value,
-        is_extended_id=True  # Usar identificadores extendidos (29 bits)
+        is_extended_id=True  # Usar identificadores extendidos (29 bits) para CAN 2.0B
     )
     
-    # Envía el mensaje
-    bus.send(message)
+    # Intentar enviar el mensaje hasta que sea exitoso
+    while True:
+        try:
+            bus.send(message)
+            break  # Si se envía correctamente, salir del bucle
+        except can.CanOperationError as e:
+            print(f"Error al enviar el mensaje CAN con ID {message_id}: {e}")
+            time.sleep(0.1)  # Espera antes de reintentar
 
 def read_all_columns(file_path, sheet_name):
     # Carga el archivo XLSX
@@ -31,14 +37,15 @@ def read_all_columns(file_path, sheet_name):
 
 def get_can_id(system_prefix, sensor_index):
     # Calcula el CAN ID basado en el prefijo del sistema y el índice del sensor
-    return (system_prefix << 28) | (sensor_index << 24)
+    # Para CAN 2.0B, el identificador puede ser más largo (hasta 29 bits)
+    return (system_prefix << 24) | (sensor_index & 0xFFFFFF)
 
 def main():
     # Configura la interfaz CAN
     bus = can.interface.Bus(channel='can0', bustype='socketcan')  # Ajusta según tu configuración
 
     # Parámetros del archivo y hoja
-    file_path = '/mnt/data/EVsimdata.xlsx'  # Ruta al archivo cargado
+    file_path = '/home/yazminbc/Downloads/EVsimdata.xlsx'  # Ruta al archivo cargado
     sheet_name = 'Hoja1'  # Nombre de la hoja, ajusta si es necesario
 
     # Definición de los sistemas y sus rangos de columnas
@@ -52,17 +59,28 @@ def main():
     # Lee todos los datos por columna
     columns = read_all_columns(file_path, sheet_name)
 
-    # Envía los datos por CAN fila por fila
+    # Intervalo de tiempo entre envíos en segundos (0.5 segundos para 2Hz)
+    interval = 0.5
+    
     num_rows = len(columns[0])  # Número de filas (asume que todas las columnas tienen el mismo número de filas)
     
     for row_index in range(num_rows):
+        start_time = time.monotonic()  # Marca el tiempo de inicio del ciclo
+        
         for system_prefix, column_range in systems.items():
             for sensor_index in column_range:
                 value = columns[sensor_index][row_index]
                 if value is not None:
                     can_id = get_can_id(system_prefix, sensor_index - column_range.start)
                     send_float64_over_can(bus, can_id, value)
-        time.sleep(0.001)  # Espera 0.5 segundos para mantener una frecuencia de 2Hz
+        
+        # Calcular el tiempo que falta para completar el intervalo de 0.5 segundos
+        elapsed_time = time.monotonic() - start_time
+        time_to_wait = interval - elapsed_time
+        
+        if time_to_wait > 0:
+            time.sleep(time_to_wait)  # Espera el tiempo restante si es necesario
 
 if __name__ == "__main__":
     main()
+
