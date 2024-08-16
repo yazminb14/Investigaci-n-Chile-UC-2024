@@ -46,8 +46,18 @@ def save_to_json(can_id, decimal_value):
             with open('received_data.json', 'r') as file:
                 existing_data = json.load(file)
         except json.JSONDecodeError:
-            existing_data = {"VehicleData": {}}
+            print("Error al leer el archivo JSON. Creando un nuevo archivo.")
+            create_initial_json_file()
+            with open('received_data.json', 'r') as file:
+                existing_data = json.load(file)
     else:
+        create_initial_json_file()
+        with open('received_data.json', 'r') as file:
+            existing_data = json.load(file)
+
+    # Asegurarse de que la clave 'VehicleData' existe
+    if 'VehicleData' not in existing_data:
+        print("'VehicleData' no encontrado en los datos. Creando la estructura inicial.")
         create_initial_json_file()
         with open('received_data.json', 'r') as file:
             existing_data = json.load(file)
@@ -72,13 +82,17 @@ def save_to_json(can_id, decimal_value):
     system_name = systems.get(str(can_id), None)
     if system_name:
         timestamp = datetime.utcnow().isoformat()
+        found = False
         for sensor in existing_data["VehicleData"].get(system_name, []):
             if sensor["can_id"] == str(can_id):
                 sensor["timestamp"] = timestamp
                 sensor["value"] = decimal_value
+                found = True
                 break
-        else:
+        if not found:
             print(f"No se encontró un sensor con el ID {can_id} en {system_name}")
+    else:
+        print(f"ID de CAN {can_id} no mapeado a ningún sistema")
 
     # Guardar los datos actualizados en el archivo JSON
     with open('received_data.json', 'w') as file:
@@ -112,3 +126,4 @@ def receive_can_message():
 
 if __name__ == "__main__":
     receive_can_message()
+
