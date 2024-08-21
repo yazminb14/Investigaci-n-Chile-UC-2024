@@ -9,7 +9,6 @@ from pymongo import MongoClient
 from dotenv import load_dotenv
 from pymongo.errors import ConnectionFailure
 
-
 # Cargar variables de entorno para la conexión MongoDB
 load_dotenv()
 MONGO_USER = os.getenv("MONGO_USER")
@@ -180,9 +179,6 @@ def receive_can_message():
         bus = can.Bus(channel='can0', bustype='socketcan')
         print("Interfaz CAN configurada correctamente, esperando mensajes...")
 
-        # Mantener un diccionario para almacenar los últimos valores de cada sensor
-        last_sensor_data = {}
-
         while True:
             # Recibir mensaje
             message = bus.recv()
@@ -195,9 +191,6 @@ def receive_can_message():
 
                     # Convertir el timestamp de epoch a un objeto datetime
                     timestamp = datetime.fromtimestamp(timestamp)
-
-                    # Actualizar el último valor del sensor en el diccionario
-                    last_sensor_data[message.arbitration_id] = (timestamp, decimal_value)
 
                     print(f"ID: {message.arbitration_id}, Timestamp: {timestamp}, Decimal Value: {decimal_value}, Extended: {message.is_extended_id}")
 
