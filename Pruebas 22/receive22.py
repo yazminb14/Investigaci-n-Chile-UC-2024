@@ -50,6 +50,39 @@ def create_database():
     conn.commit()
     conn.close()
 
+def create_initial_json_file():
+    # Crear un archivo JSON con la estructura inicial si no existe
+    data = {
+        "VehicleData": {
+            "BatterySystem": [
+                {"sensor_name": "SOC", "can_id": "16777216", "timestamp": None, "value": None},
+                {"sensor_name": "BatPowerLosses", "can_id": "16777217", "timestamp": None, "value": None},
+                {"sensor_name": "BatteryVoltage", "can_id": "16777218", "timestamp": None, "value": None},
+                {"sensor_name": "BatteryPower", "can_id": "16777219", "timestamp": None, "value": None},
+                {"sensor_name": "BatteryCurrent", "can_id": "16777220", "timestamp": None, "value": None}
+            ],
+            "MotorSystem": [
+                {"sensor_name": "MotorPowerOut", "can_id": "33554432", "timestamp": None, "value": None},
+                {"sensor_name": "MotorPowerIn", "can_id": "33554433", "timestamp": None, "value": None},
+                {"sensor_name": "MotorPowerLosses", "can_id": "33554434", "timestamp": None, "value": None},
+                {"sensor_name": "MotorNetTorque", "can_id": "33554435", "timestamp": None, "value": None}
+            ],
+            "DrivelineSystem": [
+                {"sensor_name": "DrivelinePowerLoss", "can_id": "50331648", "timestamp": None, "value": None},
+                {"sensor_name": "MotorSpeed", "can_id": "50331649", "timestamp": None, "value": None},
+                {"sensor_name": "NetTractiveForce", "can_id": "50331650", "timestamp": None, "value": None}
+            ],
+            "GliderSystem": [
+                {"sensor_name": "VehicleSpeed", "can_id": "67108864", "timestamp": None, "value": None}
+            ]
+        }
+    }
+
+    # Guardar el archivo JSON
+    with open('received_data.json', 'w') as file:
+        json.dump(data, file, indent=4)
+
+    print("Archivo JSON inicial creado.")
 
 def save_to_mongo(can_id, sensor_name, timestamp, value):
     # Guardar los datos en MongoDB
