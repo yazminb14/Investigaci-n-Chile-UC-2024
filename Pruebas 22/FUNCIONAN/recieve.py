@@ -157,7 +157,7 @@ def save_to_json(can_id, timestamp, value):
             if sensor["can_id"] == str(can_id):
                 sensor["timestamp"] = timestamp.isoformat()
                 sensor["value"] = value
-                save_to_mongo(sensor["can_id"], sensor["sensor_name"], timestamp.isoformat(), value)
+                save_to_mongo(sensor["can_id"], sensor["sensor_name"], timestamp, value)
                 break
     else:
         print(f"ID de CAN {can_id} no mapeado a ningún sistema")
