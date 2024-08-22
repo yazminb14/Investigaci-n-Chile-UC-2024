@@ -171,9 +171,9 @@ def save_to_json(can_id, timestamp, decimal_value):
 
 def receive_can_message():
     create_database()  # Asegurar que la base de datos esté creada
-
-    # Estructura para almacenar temporalmente valores y timestamps
-    pending_messages = defaultdict(lambda: {"value": None, "timestamp": None})
+    
+    # Diccionario para almacenar temporalmente valores y timestamps de sensores
+    sensor_data = defaultdict(lambda: {"value": None, "timestamp": None})
 
     try:
         # Configurar la interfaz CAN
@@ -188,26 +188,28 @@ def receive_can_message():
 
                 # Verificar si el mensaje tiene 8 bytes de datos
                 if len(message.data) == 8:
-                    # Si el ID del mensaje es para el valor del sensor (por debajo de cierto umbral)
                     if can_id < 0x1000:
-    # Mensaje que contiene el valor del sensor
-                        decimal_value = convert_from_8_bytes_float(message.data)
-                        pending_messages[can_id]["value"] = decimal_value
-                        corresponding_can_id = can_id
+                        # Es un valor del sensor
+                        decimal_value = convert_from_4_bytes_float(message.data[4:])
+                        sensor_data[can_id]["value"] = decimal_value
+                        print(f"Recibido valor: {decimal_value} para CAN ID: {can_id}")
                     else:
-    # Mensaje que contiene el timestamp, identificador con offset 0x1000
-                        timestamp = convert_from_8_bytes_float(message.data)
-                        pending_messages[can_id - 0x1000]["timestamp"] = datetime.fromtimestamp(timestamp)
-                        corresponding_can_id = can_id - 0x1000
+                        # Es un timestamp, identificable por el offset 0x1000
+                        timestamp = convert_from_4_bytes_float(message.data[:4])
+                        timestamp = datetime.fromtimestamp(timestamp)
+                        sensor_id = can_id - 0x1000  # Identificar el sensor correspondiente al timestamp
+                        sensor_data[sensor_id]["timestamp"] = timestamp
+                        print(f"Recibido timestamp: {timestamp} para CAN ID: {sensor_id}")
 
-# Verificar si tenemos tanto el valor como el timestamp
-                    if pending_messages[corresponding_can_id]["value"] is not None and pending_messages[corresponding_can_id]["timestamp"] is not None:
-    # Procesar los datos completos
-                    save_to_json(corresponding_can_id, pending_messages[corresponding_can_id]["timestamp"], pending_messages[corresponding_can_id]["value"])
+                    # Verificar si ya tenemos tanto el valor como el timestamp para este sensor
+                    if sensor_data[can_id]["value"] is not None and sensor_data[can_id]["timestamp"] is not None:
+                        # Guardar el valor y el timestamp en el archivo JSON y MongoDB
+                        save_to_json(can_id, sensor_data[can_id]["timestamp"], sensor_data[can_id]["value"])
 
-    # Limpiar los datos pendientes
-                    pending_messages.pop(corresponding_can_id)
-
+                        # Limpiar los datos guardados
+                        sensor_data.pop(can_id)
+                else:
+                    print(f"ID: {message.arbitration_id}, Data: {message.data}, Extended: {message.is_extended_id} (Datos no tienen 8 bytes)")
 
     except can.CanError as e:
         print("Error configurando la interfaz CAN:", e)
