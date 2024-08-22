@@ -16,6 +16,9 @@ def send_float64_over_can(bus, message_id, value, max_retries=5, retry_delay=0.1
         is_extended_id=True
     )
     
+    # Imprime el mensaje que se va a enviar
+    print(f"Enviando mensaje CAN ID: {message_id}, Valor: {value}, Datos: {packed_value.hex()}")
+    
     retries = 0
     while retries < max_retries:
         try:
@@ -36,6 +39,9 @@ def send_timestamp_over_can(bus, timestamp_id, timestamp, max_retries=5, retry_d
         data=packed_timestamp,
         is_extended_id=True
     )
+    
+    # Imprime el mensaje de timestamp que se va a enviar
+    print(f"Enviando timestamp CAN ID: {timestamp_id}, Timestamp: {timestamp}, Datos: {packed_timestamp.hex()}")
     
     retries = 0
     while retries < max_retries:
@@ -79,7 +85,7 @@ def process_row(bus, columns, row_index, systems):
             value = columns[sensor_index][row_index]
             if value is not None:
                 can_id = get_can_id(system_prefix, sensor_index - column_range.start)
-                timestamp_id = can_id + 0x1000  # Puedes usar un offset o algún otro mecanismo para generar el ID de timestamp
+                timestamp_id = can_id + 0x10  # Puedes usar un offset o algún otro mecanismo para generar el ID de timestamp
                 
                 # Enviar el valor del sensor
                 thread_value = threading.Thread(target=send_can_message, args=(bus, can_id, value))
@@ -124,3 +130,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
