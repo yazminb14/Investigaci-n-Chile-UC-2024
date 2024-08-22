@@ -162,21 +162,27 @@ def receive_can_message():
         bus = can.Bus(channel='can0', bustype='socketcan')
         print("Esperando mensajes CAN...")
 
+        # Diccionario para mapear IDs de sensores y timestamps
+        sensor_ids = [16777216, 16777217, 16777218, 16777219, 16777220,
+                      33554432, 33554433, 33554434, 33554435,
+                      50331648, 50331649, 50331650,
+                      67108864]
+
         while True:
             message = bus.recv()
             if message and len(message.data) == 8:
                 can_id = message.arbitration_id
 
-                if can_id < 0x1000:
+                if can_id in sensor_ids:
                     # Recibir valor del sensor
                     value = convert_from_8_bytes_float(message.data)
                     sensor_data[can_id]["value"] = value
                     print(f"Recibido valor {value} para CAN ID {can_id}")
-                else:
+                elif can_id - 0x10 in sensor_ids:
                     # Recibir timestamp
                     timestamp = convert_from_8_bytes_float(message.data)
                     timestamp = datetime.fromtimestamp(timestamp)
-                    sensor_id = can_id - 0x1000
+                    sensor_id = can_id - 0x10
                     sensor_data[sensor_id]["timestamp"] = timestamp
                     print(f"Recibido timestamp {timestamp} para CAN ID {sensor_id}")
 
@@ -192,4 +198,4 @@ def receive_can_message():
         print(f"Error inesperado: {e}")
 
 if __name__ == "__main__":
-    receive_can_message()
+recieve_can_message()
