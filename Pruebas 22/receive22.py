@@ -190,21 +190,24 @@ def receive_can_message():
                 if len(message.data) == 8:
                     # Si el ID del mensaje es para el valor del sensor (por debajo de cierto umbral)
                     if can_id < 0x1000:
+    # Mensaje que contiene el valor del sensor
                         decimal_value = convert_from_8_bytes_float(message.data)
                         pending_messages[can_id]["value"] = decimal_value
-
-                    # Si el ID del mensaje es para el timestamp (ID con un offset)
+                        corresponding_can_id = can_id
                     else:
+    # Mensaje que contiene el timestamp, identificador con offset 0x1000
                         timestamp = convert_from_8_bytes_float(message.data)
                         pending_messages[can_id - 0x1000]["timestamp"] = datetime.fromtimestamp(timestamp)
+                        corresponding_can_id = can_id - 0x1000
 
-                    # Verificar si tenemos tanto el valor como el timestamp
-                    if pending_messages[can_id]["value"] is not None and pending_messages[can_id]["timestamp"] is not None:
-                        # Procesar los datos completos
-                        save_to_json(can_id, pending_messages[can_id]["timestamp"], pending_messages[can_id]["value"])
+# Verificar si tenemos tanto el valor como el timestamp
+                    if pending_messages[corresponding_can_id]["value"] is not None and pending_messages[corresponding_can_id]["timestamp"] is not None:
+    # Procesar los datos completos
+                    save_to_json(corresponding_can_id, pending_messages[corresponding_can_id]["timestamp"], pending_messages[corresponding_can_id]["value"])
 
-                        # Limpiar los datos pendientes
-                        pending_messages.pop(can_id)
+    # Limpiar los datos pendientes
+                    pending_messages.pop(corresponding_can_id)
+
 
     except can.CanError as e:
         print("Error configurando la interfaz CAN:", e)
