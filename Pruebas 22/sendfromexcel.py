@@ -3,27 +3,18 @@ import struct
 import can
 from openpyxl import load_workbook
 import threading
-from datetime import datetime
-import pandas as pd
 
 # Lock para sincronizar el envío de mensajes
 lock = threading.Lock()
 
-# DataFrame para almacenar los valores de sensores y timestamps
-data = []
-
-def send_float64_and_timestamp_over_can(bus, message_id, value, timestamp, max_retries=5, retry_delay=0.1):
+def send_float64_over_can(bus, message_id, value, max_retries=5, retry_delay=0.1):
     packed_value = struct.pack('>d', value)
-    packed_timestamp = struct.pack('>d', timestamp)
+    message = can.Message(
+        arbitration_id=message_id,
+        data=packed_value,
+        is_extended_id=True
+    )
     
-    # Enviamos el mensaje del valor
-    send_message(bus, message_id, packed_value, max_retries, retry_delay)
-    
-    # Enviamos el mensaje del timestamp, con ID incrementado en 1
-    send_message(bus, message_id + 1, packed_timestamp, max_retries, retry_delay)
-
-def send_message(bus, message_id, packed_data, max_retries, retry_delay):
-    message = can.Message(arbitration_id=message_id, data=packed_data, is_extended_id=True)
     retries = 0
     while retries < max_retries:
         try:
@@ -33,6 +24,27 @@ def send_message(bus, message_id, packed_data, max_retries, retry_delay):
             print(f"Error al enviar el mensaje CAN con ID {message_id}: {e}")
             retries += 1
             time.sleep(retry_delay)
+    
+    return False
+
+def send_timestamp_over_can(bus, timestamp_id, timestamp, max_retries=5, retry_delay=0.1):
+    packed_timestamp = struct.pack('>d', timestamp)
+    message = can.Message(
+        arbitration_id=timestamp_id,
+        data=packed_timestamp,
+        is_extended_id=True
+    )
+    
+    retries = 0
+    while retries < max_retries:
+        try:
+            bus.send(message)
+            return True
+        except can.CanOperationError as e:
+            print(f"Error al enviar el timestamp CAN con ID {timestamp_id}: {e}")
+            retries += 1
+            time.sleep(retry_delay)
+    
     return False
 
 def read_all_columns(file_path, sheet_name):
@@ -45,11 +57,18 @@ def read_all_columns(file_path, sheet_name):
 def get_can_id(system_prefix, sensor_index):
     return (system_prefix << 24) | (sensor_index & 0xFFFFFF)
 
-def send_can_message(bus, can_id, value, timestamp):
+def send_can_message(bus, can_id, value):
     with lock:  # Asegura que solo un thread envíe un mensaje a la vez
-        send_float64_and_timestamp_over_can(bus, can_id, value, timestamp)
-        # Añadimos el valor del sensor y su timestamp al dataframe
-        data.append({'CAN_ID': can_id, 'Value': value, 'Timestamp': timestamp})
+        success = send_float64_over_can(bus, can_id, value)
+        if not success:
+            print(f"Failed to send message with CAN ID {can_id}")
+
+def send_timestamp(bus, timestamp_id):
+    timestamp = time.time()
+    with lock:
+        success = send_timestamp_over_can(bus, timestamp_id, timestamp)
+        if not success:
+            print(f"Failed to send timestamp with CAN ID {timestamp_id}")
 
 def process_row(bus, columns, row_index, systems):
     for system_prefix, column_range in systems.items():
@@ -57,10 +76,19 @@ def process_row(bus, columns, row_index, systems):
             value = columns[sensor_index][row_index]
             if value is not None:
                 can_id = get_can_id(system_prefix, sensor_index - column_range.start)
-                timestamp = datetime.now().timestamp()
-                thread = threading.Thread(target=send_can_message, args=(bus, can_id, value, timestamp))
-                thread.start()
-                thread.join()  # Espera hasta que el mensaje actual sea enviado antes de continuar
+                timestamp_id = can_id + 0x1000  # Puedes usar un offset o algún otro mecanismo para generar el ID de timestamp
+                
+                # Enviar el valor del sensor
+                thread_value = threading.Thread(target=send_can_message, args=(bus, can_id, value))
+                thread_value.start()
+                
+                # Enviar el timestamp después
+                thread_timestamp = threading.Thread(target=send_timestamp, args=(bus, timestamp_id))
+                thread_timestamp.start()
+                
+                # Espera a que ambos threads terminen antes de continuar
+                thread_value.join()
+                thread_timestamp.join()
 
 def main():
     bus = can.interface.Bus(channel='can0', bustype='socketcan')
@@ -90,10 +118,6 @@ def main():
         
         if time_to_wait > 0:
             time.sleep(time_to_wait)
-
-    # Al final, creamos el DataFrame
-    df = pd.DataFrame(data)
-    print(df)
 
 if __name__ == "__main__":
     main()
