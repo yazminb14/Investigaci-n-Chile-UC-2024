@@ -4,7 +4,9 @@ After=network.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash -c 'sudo ip link set can0 up type can bitrate 500000 && sudo ifconfig can0 up && /usr/bin/python3 /home/yazminbc/Downloads/send_data_excel.py'
+ExecStart=/bin/bash -c 'sudo ifconfig can0 down; sudo ip link set can0 up type can bitrate 500000 && sudo ifconfig can0 up && /usr/bin/python3 /home/yazminbc/Downloads/recieve.py'
+StandardOutput=journal
+StandardError=journal
 RemainAfterExit=yes
 
 [Install]
