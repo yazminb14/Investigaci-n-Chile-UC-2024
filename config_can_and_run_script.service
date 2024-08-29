@@ -1,0 +1,11 @@
+[Unit]
+Description=Configura la interfaz CAN y ejecuta el script de Python
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'sudo ip link set can0 up type can bitrate 500000 && sudo ifconfig can0 up && /usr/bin/python3 /home/yazminbc/Downloads/send_data_excel.py'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
